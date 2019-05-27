@@ -1,0 +1,78 @@
+# field_names 之中不能有任何空格，否则会报错！！！！！！！！！！！！！！！
+- id : checker_pfm_bonus
+  type : select
+  sqls : 
+  #  业绩，乘务员，单日提成奖励
+      day_pfm_b : 
+          sql : 'select ifnull((amount),0) day_pfm_amount, ifnull(total*overall_rate,0) day_pfm_bonus from 
+            (
+            select sum(pbo.amount) amount,sum(pbo.total) total from passenger_bus_order pbo, bus_schedule bs, schedule_vehicle sv, vehicle v 
+            where pbo.bus_schedule_id = bs.id and  pbo.schedule_vehicle_id =sv.id and sv.vehicle_id= v.id 
+            and pay_status = 1 and pay_method = 1 and bs.departure_time  
+            between str_to_date(DATE_FORMAT(NOW(),''%Y-%m-%d''),''%Y-%m-%d %H:%i:%s'') and DATE_ADD(DATE_ADD(str_to_date(DATE_FORMAT(NOW(),''%Y-%m-%d''),''%Y-%m-%d %H:%i:%s''),INTERVAL 1 DAY),INTERVAL -1 SECOND) 
+            and v.id in 
+            (select vehicle_id from check_account_station_coach casc, check_account ca where casc.check_account_id = ca.id and ca.role=''1'' and ca.id =?)
+            and (TIMESTAMPDIFF(MINUTE,pbo.original_date,pbo.update_date) between -120 and 60)
+            ) bonusSumAmount, 
+            (
+            select pb.day_target_num dtn,(pb.target_bonus_rate) overall_rate from performance_bonus pb, performance_vehicle pv, vehicle v  where pv.performance_bonus_id = pb.id and v.id = pv.vehicle_id and v.id in 
+            (select vehicle_id from check_account_station_coach casc, check_account ca where casc.check_account_id = ca.id and ca.role=''1'' and ca.id =?) order by pb.day_target_num desc
+            ) pBonus where bonusSumAmount.amount>=pBonus.dtn  limit 1'
+          params : check_account_id,check_account_id
+          field_names : day_pfm_amount,day_pfm_bonus
+ #  业绩，乘务员，提成奖级指标
+      overall_rate_b : 
+          sql : 'select pb.day_target_num day_target_num,(pb.target_bonus_rate) overall_rate 
+              from performance_bonus pb, performance_vehicle pv, vehicle v  where pv.performance_bonus_id = pb.id and v.id = pv.vehicle_id and v.id in 
+              (select vehicle_id from check_account_station_coach casc, check_account ca where casc.check_account_id = ca.id and ca.role=''1'' 
+              and ca.id =?) order by pb.day_target_num asc' 
+          params : check_account_id
+          field_names : day_target_num,overall_rate
+# 日基础收入0.5%
+      day_basic_b : 
+          sql : '
+          select 0.01 basic_percent, ifnull(sum(pbo.total)*0.01,0) day_basic_bonus from passenger_bus_order pbo, bus_schedule bs, schedule_vehicle sv, vehicle v 
+          where pbo.bus_schedule_id = bs.id and  pbo.schedule_vehicle_id =sv.id and sv.vehicle_id= v.id 
+          and pay_status = 1 and pay_method = 1 and bs.departure_time  
+          between str_to_date(DATE_FORMAT(NOW(),''%Y-%m-%d''),''%Y-%m-%d %H:%i:%s'') and DATE_ADD(DATE_ADD(str_to_date(DATE_FORMAT(NOW(),''%Y-%m-%d''),''%Y-%m-%d %H:%i:%s''),INTERVAL 1 DAY),INTERVAL -1 SECOND) 
+          and v.id in 
+          (select vehicle_id from check_account_station_coach casc, check_account ca where casc.check_account_id = ca.id and ca.role=''1'' and ca.id =?)
+          '
+          params : check_account_id
+          field_names : basic_percent,day_basic_bonus
+# 业绩，乘务员，月总奖金
+      month_pfm_b : 
+          sql : '
+              select ifnull((amount),0) month_pfm_amount, ifnull(sum(total*overall_rate),0) month_pfm_bonus  from  
+              (
+              select * from 
+              (
+              select sum(pbo.amount) amount,sum(pbo.total) total, DATE_FORMAT(bs.departure_time,''%Y年%m月%d日'') dTimt  from passenger_bus_order pbo, bus_schedule bs, schedule_vehicle sv, vehicle v 
+              where pbo.bus_schedule_id = bs.id and  pbo.schedule_vehicle_id =sv.id and sv.vehicle_id= v.id 
+              and pay_status = 1 and pay_method = 1 and bs.departure_time  
+              between date_add(curdate(), interval - day(curdate()) + 1 day) and date_add(curdate() - day(curdate()) + 1, interval 1 month) 
+              and v.id in 
+              (select vehicle_id from check_account_station_coach casc, check_account ca where casc.check_account_id = ca.id and ca.role=''1'' and ca.id =?)
+              and (TIMESTAMPDIFF(MINUTE,pbo.original_date,pbo.update_date) between -120 and 60)
+              group by dTimt
+              ) sumAmount, 
+              (
+              select pb.day_target_num dtn,(pb.target_bonus_rate) overall_rate from performance_bonus pb, performance_vehicle pv, vehicle v  where pv.performance_bonus_id = pb.id and v.id = pv.vehicle_id and v.id in 
+              (select vehicle_id from check_account_station_coach casc, check_account ca where casc.check_account_id = ca.id and ca.role=''1'' and ca.id =? 
+              ) order by pb.day_target_num desc
+              ) pBonus where sumAmount.amount>=pBonus.dtn group by dTimt
+              ) f
+          '
+          params : check_account_id,check_account_id
+          field_names : month_pfm_amount,month_pfm_bonus
+#  月基础收入0.5%
+      month_basic_b : 
+          sql: 'select 0.01 basic_percent, ifnull(sum(pbo.total)*0.01,0) month_basic_bonus from passenger_bus_order pbo, bus_schedule bs, schedule_vehicle sv, vehicle v 
+          where pbo.bus_schedule_id = bs.id and  pbo.schedule_vehicle_id =sv.id and sv.vehicle_id= v.id 
+          and pay_status = 1 and pay_method = 1 and bs.departure_time  
+          between date_add(curdate(), interval - day(curdate()) + 1 day) and date_add(curdate() - day(curdate()) + 1, interval 1 month) 
+          and v.id in 
+          (select vehicle_id from check_account_station_coach casc, check_account ca where casc.check_account_id = ca.id and ca.role=''1'' and ca.id =?)
+          '
+          params : check_account_id
+          field_names : basic_percent,month_basic_bonus

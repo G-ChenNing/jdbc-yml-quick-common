@@ -1,0 +1,47 @@
+# field_names 之中不能有任何空格，否则会报错！！！！！！！！！！！！！！！
+
+#获取多个班次bus_schedule对应的多个配置车辆schedule_vehicle的 1 已验票数量，2 未验票数量，3 余票，
+#未用到，20171209
+- id : geSVStatistics
+  type : select
+  sqls :
+      remainSeats : 
+             sql :     
+                      '
+                      SELECT CASE WHEN a > b THEN c - a ELSE c - b END AS remainSeats,svid,  
+(select count(1) from passenger_bus_order where PAY_STATUS = "1" and pay_method = "1" and check_status= "1" and schedule_vehicle_id = svid) AS checkNum, 
+(select count(1) from passenger_bus_order where PAY_STATUS = "1" and pay_method = "1" and check_status= "0" and schedule_vehicle_id = svid) AS unCheckNum 
+                   FROM (SELECT (
+                    SELECT IFNULL(SUM(amount), 0)
+                    FROM `passenger_bus_order`
+                    WHERE schedule_vehicle_id = sv.id
+                      AND (pay_status = 1 
+                        OR (pay_status = 0
+                        AND pay_method = 1
+                        AND UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(create_date) <?1))
+                    ) AS a, (
+                    SELECT IFNULL(SUM(amount), 0)
+                    FROM pre_sale
+                    WHERE schedule_vehicle_id = sv.id
+                      AND `status` != 2
+                    ) + (
+                    SELECT IFNULL(SUM(amount), 0)
+                    FROM passenger_bus_order
+                    WHERE schedule_vehicle_id = sv.id AND pay_method = 1
+                      AND (pay_status = 1
+                        OR (pay_status = 0
+                        AND UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(create_date) <?2))
+                    ) AS b, (
+                    SELECT IFNULL(seat_num, 0)
+                    FROM vehicle  
+                    WHERE id = (
+                      SELECT vehicle_id
+                      FROM schedule_vehicle
+                      WHERE id = sv.id
+                      )
+                    ) AS c,sv.id svid from schedule_vehicle sv where sv.bus_schedule_id in (?3) and sv.del_flag != "1"
+                ) t
+                '
+             params : validSeconds,validSeconds,ids
+             field_names : remainSeats,svid,checkNum,unCheckNum
+ 

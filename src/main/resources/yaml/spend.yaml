@@ -1,0 +1,21 @@
+# field_names 之中不能有任何空格，否则会报错！！！！！！！！！！！！！！！
+# 批处理类型type指定为batch,传参数时参数数组字段名称和sqls下具体sql的name保持一致
+- id : addSpend
+  type : batch
+  sqls : 
+      spend_list :
+         sql : 'insert into schedule_vehicle_spend (id, name, price,remarks, bus_schedule_id, schedule_vehicle_id,del_flag) values(?,?,?,?,?,?,0)'
+         params : id,name,price,remarks,bus_schedule_id,schedule_vehicle_id
+- id : deleteSpend
+  type : delete
+  sqls : 
+      deleteSpend :
+         sql : 'delete from schedule_vehicle_spend where id = ?'
+         params : id
+- id : selectSpend
+  type : select
+  sqls : 
+      selectSpend :
+         sql : 'select id, name from schedule_vehicle_spend'
+         field_names : id,name
+         

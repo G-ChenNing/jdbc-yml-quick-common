@@ -1,0 +1,80 @@
+# field_names 之中不能有任何空格，否则会报错！！！！！！！！！！！！！！！
+- id : test
+  type : select
+  sqls : 
+      getOrder :
+         sql : 'select * from passenger_bus_order where pay_method = ?'
+         params : pay_method
+         field_names : id,test,pay_method
+      getOrder2 :
+         sql : 'select * from passenger_bus_order where pay_method = ?'
+         params : pay_method
+         field_names : id,test,pay_method
+ 
+- id : get_schedule_vehicle_spend
+  type : select
+  sqls :
+      orderMsg :
+          sql : 'select id, code from passenger_bus_order where pay_method = ?'
+          params : pay_method
+          field_names : id,code 
+      orderMsg2 :
+          sql : 'select id, code from passenger_bus_order where pay_method = ?'
+          params : pay_method
+          field_names : id,code 
+          
+- id : get_road_bill
+  type : select
+  sqls : 
+#       收入总和，支付状态=1，已支付，验票状态=1，已验票
+      income_sum:
+          sql: 'select sum(total) from passenger_bus_order where pay_status=1 and check_status=1 and schedule_vehicle_id=?'
+          params : schedule_vehicle_id
+          field_names: income_sum
+#       支出总和   
+      spend_sum:
+          sql: 'select sum(price)  from schedule_vehicle_spend where schedule_vehicle_id=?'
+          params : schedule_vehicle_id
+          field_names: spend_sum
+#          收入列表，支付状态=1，已支付，验票状态=1，已验票
+      income_list :
+          sql: 'select name,sum(amount),sum(total) FROM passenger_bus_order as p join config_pay_method as c on p.pay_method = c.id
+                 where pay_status=1 and check_status=1 and schedule_vehicle_id = ? GROUP BY pay_method'
+          params : schedule_vehicle_id
+          field_names : name,amount,total
+#          支出列表
+      spend_list : 
+          sql: 'select s.id, c.name, s.price, s.remarks from schedule_vehicle_spend s join config_spend_name c on s.name = c.id where schedule_vehicle_id=?'
+          params : schedule_vehicle_id
+          field_names : id,name,price,remarks
+#       司机确认
+      driver_confirm :
+          sql: 'select driver_confirm from schedule_vehicle sv where  sv.id=?'
+          params : schedule_vehicle_id
+          field_names : driver_confirm
+          
+# wcn 20170915
+- id : get_bus_schedule_msg
+  type : select
+  sqls : 
+      getBusOrder :
+         sql : 'select   p.service,a.name,p.amount,total  from passenger_bus_order p 
+         join   station_coach_number   s1   on   p.terminal_station_coach_id = s1.id  
+         join   station s2    on   s1.station_id = s2.id 
+         join  sys_area a  on  s2.area_id = a.id 
+         where p.schedule_vehicle_id= ?  and p.pay_method = ?  and pay_status= ?  and check_status= ?  
+         order by service'
+         params : schedule_vehicle_id,pay_method,pay_status,check_status
+         field_names : service,area,amount,price 
+ 
+ # wcn 20171103
+- id : get_role_for_check
+  type : select
+  sqls : 
+      getRole :
+         sql : '
+         select cm.code from ca_menu cm, ca_role_menu crm, ca_check_role ccr
+         where cm.id= crm.ca_menu_id and crm.ca_role_id= ccr.ca_role_id and cm.is_show=0 and ccr.check_account_id=?
+         '
+         params : check_account_id
+         field_names : code

@@ -1,0 +1,80 @@
+# field_names 之中不能有任何空格，否则会报错！！！！！！！！！！！！！！！
+# 批处理类型type指定为deleteorder
+- id : deleteOrder
+  type : delete
+  sqls : 
+      deleteSpend :
+         sql : 'delete from passenger_bus_order where id = ?'
+         params : id
+- id : forSendCheckOrderSuccess
+  type : select
+  sqls : 
+      orderDetail :
+         sql : 'select a.id,p.code,account_level,total,amount,openid 
+                 from passenger_bus_order as p left join wxaccount as w 
+                 on p.buyer_id = w.personal_account_id
+                 join personal_account  as a on p.buyer_id = a.id  
+                 where p.id = ?'
+         params : id
+         field_names : id,code,account_level,total,amount,openid 
+- id : selectSignInCouponsn
+  type : select
+  sqls :
+      selectSignInCouponsn :
+             sql : 'SELECT remain_times,s.id
+                     FROM coupon_sn AS s join coupon_group AS g
+                     ON s.coupon_group_id = g.id
+                     WHERE sign_in_send = 1
+                     AND personal_account_id = ?'
+             params : personal_account_id
+             field_names : remain_times,coupon_sn_id
+- id : updateSignInCouponsn
+  type : batch
+  sqls :
+      updateSignInCouponsn :
+             sql : 'UPDATE coupon_sn
+                     SET remarks = ?, remain_times = 0
+                     WHERE id = ?'
+             params : remain_times,coupon_sn_id
+         
+        
+#该方法在orangebus-new-personal-web中也存在同样的脚本，修改时记得同步修改20171011
+#AND service not like '%货款%' 20180405新增，货款不计算在内
+- id : remainTickets
+  type : select 
+  sqls : 
+      remainTickets : 
+          sql : 'SELECT CASE WHEN a > b THEN c - a ELSE c - b END AS remain
+            FROM (SELECT (
+                  SELECT IFNULL(SUM(amount), 0)
+                  FROM `passenger_bus_order`
+                  WHERE schedule_vehicle_id = ?
+                  AND service not like "%货款%" 
+                    AND (pay_status = 1
+                      OR (pay_status = 0 
+                      AND pay_method = 1
+                      AND UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(create_date) < ?))
+                  ) AS a, (
+                  SELECT IFNULL(SUM(amount), 0)
+                  FROM pre_sale
+                  WHERE schedule_vehicle_id = ?
+                    AND `status` != 2
+                  ) + (
+                  SELECT IFNULL(SUM(amount), 0)
+                  FROM passenger_bus_order
+                  WHERE schedule_vehicle_id = ? AND pay_method = 1
+                    AND (pay_status = 1
+                      OR (pay_status = 0
+                      AND UNIX_TIMESTAMP(NOW()) - UNIX_TIMESTAMP(create_date) < ?))
+                  ) AS b, (
+                  SELECT IFNULL(seat_num, 0)
+                  FROM vehicle
+                  WHERE id = (
+                    SELECT vehicle_id
+                    FROM schedule_vehicle
+                    WHERE id = ?
+                    )
+                  ) AS c
+              ) t'
+          field_names : remain_num
+          params : scheduleVehicleId,validSeconds,scheduleVehicleId,scheduleVehicleId,validSeconds,scheduleVehicleId         
